@@ -2,12 +2,13 @@ package goyaad
 
 import (
 	"container/heap"
-	"errors"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urjitbhatia/goyaad/pkg/metrics"
+	"github.com/urjitbhatia/goyaad/pkg/persistence"
 )
 
 const (
@@ -27,6 +28,8 @@ type Hub struct {
 
 	removedJobsCount uint64
 	lock             *sync.Mutex
+
+	persister persistence.Persister
 }
 
 // NewHub creates a new hub where adjacent spokes lie at the given
@@ -41,6 +44,7 @@ func NewHub(spokeSpan time.Duration) *Hub {
 		reservedJobs:     make(map[string]*Job),
 		removedJobsCount: 0,
 		lock:             &sync.Mutex{},
+		persister:        persistence.NewLevelDBPersister("/tmp/hub"),
 	}
 	heap.Init(h.spokes)
 
@@ -338,5 +342,32 @@ func (h *Hub) StatusPrinter() {
 	t := time.NewTicker(time.Minute * 2)
 	for range t.C {
 		h.Status()
+	}
+}
+
+func (h *Hub) persist() {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+
+	logrus.Warn("Starting disk offload")
+	logrus.Warnf("Total spokes: %d Total jobs: %d", h.spokes.Len(), h.PendingJobsCount())
+	var i, j int
+	for i = 0; i < h.spokes.Len(); i++ {
+		s := h.spokes.AtIdx(i).value.(*Spoke)
+
+		for j = 0; j < s.jobQueue.Len(); j++ {
+			job := s.jobQueue.AtIdx(j).value.(*Job)
+			buf, err := job.GobEncode()
+			err = h.persister.Persist(&persistence.Entry{
+				Data:      buf,
+				Namespace: "job"},
+			)
+			if err != nil {
+				logrus.Error(errors.Wrap(err, "Persister failed to save job"))
+				continue
+			}
+		}
+
+		logrus.Infof("Persisted %d jobs from spoke %d", j, i)
 	}
 }
