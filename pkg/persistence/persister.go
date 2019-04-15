@@ -8,6 +8,7 @@ type Persister interface {
 
 	Persist(enc gob.GobEncoder) error
 	PersistStream(encC chan gob.GobEncoder) chan error
+	UploadToS3()
 	Finalize()
 
 	Recover() (chan []byte, error)

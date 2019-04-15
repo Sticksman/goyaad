@@ -2,11 +2,15 @@ package persistence
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
+	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
@@ -81,6 +85,15 @@ func (lp *JournalPersister) UploadToS3() {
 	sess := session.Must(session.NewSession())
 
 	svc := s3.New(sess)
+
+	_, err := svc.PutObject(&s3.PutObjectInput{
+		Body:   aws.ReadSeekCloser(strings.NewReader(p)),
+		Bucket: aws.String(lp.s3Bucket),
+		Key:    aws.String(fmt.Sprintf("jobs-%v.snapshot", time.Now().Unix())),
+	})
+	if err != nil {
+		logrus.Errorf("Persisting to S3 failed: %v", err)
+	}
 }
 
 // Persist stores an entry to disk

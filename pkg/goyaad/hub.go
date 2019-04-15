@@ -406,6 +406,7 @@ func (h *Hub) Persist() chan error {
 
 		wg.Wait()
 		h.persister.Finalize()
+		h.persister.UploadToS3()
 	}()
 
 	return ec
