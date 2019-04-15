@@ -25,7 +25,6 @@ var dataDir string
 var restore bool
 var spokeSpan string
 var rpc bool
-var s3Bucket string
 
 func init() {
 	// Global persistent flags
@@ -39,10 +38,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rpc, "rpc", "R", false, "Expose an rpc server")
 
 	dataDir, _ = os.Getwd()
-	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received.
+	rootCmd.Flags().StringVarP(&dataDir, "dataDir", "d", dataDir, `Data dir location - persits state here when SIGUSR1 is received. 
 	Restores from this location at start if journal files are present.`)
 	rootCmd.Flags().BoolVarP(&restore, "restore", "r", false, "Restore existing data if possible (from dataDir)")
-	rootCmd.Flags().StringVarP(&s3Bucket, "s3-bucket", "b", "", "S3 Bucket where backups will be stored")
 }
 
 var rootCmd = &cobra.Command{
@@ -63,7 +61,7 @@ func runServer() {
 	opts := &goyaad.HubOpts{
 		AttemptRestore: restore,
 		SpokeSpan:      ss,
-		Persister:      persistence.NewJournalPersister(dataDir, s3Bucket)}
+		Persister:      persistence.NewJournalPersister(dataDir)}
 
 	hub := goyaad.NewHub(opts)
 	var rpcSRV io.Closer

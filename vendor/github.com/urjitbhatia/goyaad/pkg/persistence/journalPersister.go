@@ -7,8 +7,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/syndtr/goleveldb/leveldb/journal"
@@ -16,20 +14,18 @@ import (
 
 // JournalPersister saves data in an embedded Journal store
 type JournalPersister struct {
-	stream   chan gob.GobEncoder // Internal stream so that all writes are ordered
-	dataDir  string
-	s3Bucket string
-	writer   *journal.Writer
+	stream  chan gob.GobEncoder // Internal stream so that all writes are ordered
+	dataDir string
+	writer  *journal.Writer
 
 	finalize chan struct{}
 }
 
 // NewJournalPersister initializes a Journal backed persister
-func NewJournalPersister(dataDir string, s3Bucket string) Persister {
+func NewJournalPersister(dataDir string) Persister {
 	lp := &JournalPersister{
 		stream:   make(chan gob.GobEncoder, 10),
 		dataDir:  dataDir,
-		s3Bucket: s3Bucket,
 		writer:   nil, // lazy init writer
 		finalize: make(chan struct{}, 1),
 	}
@@ -69,18 +65,6 @@ func (lp *JournalPersister) Finalize() {
 		logrus.Info("JournalPersister:Finalize closed writer db")
 	}
 	logrus.Info("JournalPersister:Finalize done")
-}
-
-func (lp *JournalPersister) UploadToS3() {
-	if lp.s3Bucket == "" {
-		logrus.Info("JournalPersister:Not Uploading to S3")
-		return
-	}
-
-	p := lp.getPath()
-	sess := session.Must(session.NewSession())
-
-	svc := s3.New(sess)
 }
 
 // Persist stores an entry to disk
